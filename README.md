@@ -1,22 +1,12 @@
-A better rendering package.
+# puffin
 
-[x] Size
-[x] Box
-    [x] Start/end
-    [x] Center
-    [x] Linear
+A code editor.
 
+## TODO
 
-Themes should have the following colors:
-
-- White
-- Black
-- Accent 0
-- Accent bright
-- Accent 1
-- Accent 2
-
-[.] Find way to trigger circular menu with M5
-[.] Refactor Qtile folder
-    [x] Fix os.path
-    [.] Create utils.py and extract utilities there
+[ ] Scrolling
+[ ] Input
+    [ ] Changing modes
+[ ] IO capabilities
+[ ] Have a bunch of shells open by default
+[ ] Easily change keybindings to trigger custom scripts

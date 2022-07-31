@@ -14,10 +14,10 @@ import render
 import size
 import utils
 from enums import *
+from editor import Editor
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
-
 
 # ===| Globals |===
 
@@ -34,7 +34,7 @@ WIDGETS = {}
 # A top container.
 def get_widgets():
     global WIDGETS
-    editor = render.Editor()
+    editor = Editor(position=np.array([0, 0]), anchor=Anchor.TOP | Anchor.LEFT)
     # border = render.RoundedRectangle(color=utils.Color.WHITE)
     WIDGETS = dict(
         # border=border,
@@ -62,23 +62,9 @@ def draw(da, ctx):
     if TIME_TO_KILL_AT is not None and TIME_TO_KILL_AT < time.time():
         exit()
 
+    WIDGETS["editor"].size = np.array(WINDOW.get_size())
+
     for name, widget in WIDGETS.items():
-        if name == "border":
-            widget.position = np.array(WINDOW.get_size()) / 2
-            widget.size = np.array(WINDOW.get_size()) - 32
-
-        if name == "editor":
-            widget.position = np.array(WINDOW.get_size()) / 2
-            widget.size = np.array(WINDOW.get_size()) - 32
-            widget.body.children = [
-                render.Text(color=utils.Color.WHITE, text=i, parent=widget.body)
-                for i in text
-            ]
-
-            for i, child in enumerate(widget.body.children):
-                child.anchor = render.Anchor.LEFT
-                child.position = (np.array(WINDOW.get_size()) / 2) + [0, i * 30]
-
         widget.render(ctx)
 
 
@@ -101,8 +87,14 @@ def press_callback(window, key):
     """Callback for button presses."""
     val = key.keyval
 
-    if val == Gdk.KEY_Escape:
+    if val == Gdk.KEY_Tab:
         kill()
+    elif val == Gdk.KEY_plus:
+        WIDGETS["editor"].font_size += 3
+    elif val == Gdk.KEY_minus:
+        WIDGETS["editor"].font_size -= 3
+    else:
+        WIDGETS["editor"].handle_input(Gdk.keyval_to_unicode(val), Gdk.keyval_name(val))
 
 
 def click_callback(window, event):

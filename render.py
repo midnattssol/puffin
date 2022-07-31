@@ -5,7 +5,7 @@ import enum
 import itertools as it
 import time
 import typing as t
-
+import math
 import cairo
 import more_itertools as mit
 import numpy as np
@@ -69,7 +69,6 @@ class Sized(Renderable):
     size: Size = dc.field(default_factory=lambda: Relative(np.array([0.5, 0.5])))
 
     def get_top_left(self):
-        # print(self.size * self.anchor.to_arr())
         return self.position - self.size * self.anchor.to_arr()
 
 
@@ -113,7 +112,6 @@ class Container(Sized):
 
         rel_pos = np.array([0.0, 0.0])
         rel_pos[i] += self.spacing
-        # rel_pos[i] += self.children[0].size[i] / 2
 
         locations = []
 
@@ -247,10 +245,11 @@ class Text(Renderable):
         ctx.move_to(*self.position - ([width, height] * self.anchor.to_arr()))
         ctx.show_text(self.text)
 
-        ctx.set_source_rgba(1, 0.2, 0, 1)
-        ctx.arc(*self.position - ([width, height] * self.anchor.to_arr()), 4, 0, TAU)
-        ctx.fill()
-        ctx.stroke()
+        # DEBUG: Uncomment this to see circles.
+        # ctx.set_source_rgba(1, 0.2, 0, 1)
+        # ctx.arc(*self.position - ([width, height] * self.anchor.to_arr()), 4, 0, TAU)
+        # ctx.fill()
+        # ctx.stroke()
 
 
 class RoundedRectangle(Rectangle):
@@ -263,28 +262,6 @@ class RoundedRectangle(Rectangle):
         ctx.stroke()
 
         Container.render(self, ctx)
-
-
-# Stuff for the terminalesque aesthetic
-@dc.dataclass
-class Editor(Container):
-    body: Container = dc.field(
-        default_factory=lambda: Container(
-            # packing=Packing.START, direction=Direction.HORIZONTAL
-        )
-    )
-    line_numbers: Container = dc.field(default_factory=Container)
-    top_info: Container = dc.field(default_factory=Container)
-    bottom_info: Container = dc.field(default_factory=Container)
-    top_line: int = 0
-
-    def __post_init__(self):
-        for i in self.body, self.line_numbers, self.top_info, self.bottom_info:
-            i.parent = self
-
-    def render(self, ctx):
-        for i in self.body, self.line_numbers, self.top_info, self.bottom_info:
-            i.render(ctx)
 
 
 # ===| Utilities |===
