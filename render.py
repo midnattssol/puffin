@@ -194,7 +194,6 @@ class Rectangle(Shape, Container):
         Container.render(self, ctx)
 
 
-# DEBUG: Debug this.
 @dc.dataclass
 class Arc(Renderable, Shape):
     radius: float = 20
@@ -224,7 +223,6 @@ class Arc(Renderable, Shape):
         ctx.stroke()
 
 
-# DEBUG: Debug this.
 @dc.dataclass
 class Text(Renderable):
     color: ... = dc.field(default_factory=lambda: np.array([0.1, 0.1, 0.1]))
@@ -245,13 +243,14 @@ class Text(Renderable):
         ctx.move_to(*self.position - ([width, height] * self.anchor.to_arr()))
         ctx.show_text(self.text)
 
-        # DEBUG: Uncomment this to see circles.
+        # # DEBUG: Uncomment this to see circles.
         # ctx.set_source_rgba(1, 0.2, 0, 1)
         # ctx.arc(*self.position - ([width, height] * self.anchor.to_arr()), 4, 0, TAU)
         # ctx.fill()
         # ctx.stroke()
 
 
+@dc.dataclass
 class RoundedRectangle(Rectangle):
     radius: float = 8
 

@@ -109,17 +109,21 @@ def click_callback(window, event):
 
 def main():
     global WINDOW
-    colors = [
-        "#E7F7C9",
-        "#101D24",
-        "#468C61",
-        "#133845",
-    ]
+    colors = {
+        "ACCENT_0": "#8F1445",
+        "ACCENT_1": "#AE375B",
+        "ACCENT_2": "#C86574",
+        "ACCENT_3": "#E6B2BB",
+        "WHITE": "#FCFCFF",
+        "GREY_L1": "#5B586A",
+        "GREY": "#4B4957",
+        "GREY_D1": "#3A3943",
+        "GREY_D2": "#29292F",
+        "BLACK": "#18191B",
+    }
 
-    utils.Color.WHITE = utils.normalize_color(colors[0])
-    utils.Color.BLACK = utils.normalize_color(colors[1])
-    utils.Color.ACCENT_0 = utils.normalize_color(colors[2])
-    utils.Color.ACCENT_1 = utils.normalize_color(colors[3])
+    for k, v in colors.items():
+        setattr(utils.Color, k, utils.normalize_color(v))
 
     get_widgets()
 
