@@ -42,21 +42,6 @@ def get_widgets():
     )
 
 
-text = """
-def get_widgets():
-    global WIDGETS
-    rectangle = render.RoundedRectangle(
-        position=size.TimeFunction(
-            ip.oscillating(
-                SIZE / 2 - [0, 100],
-                SIZE / 2 + [0, 100],
-            )
-        ),
-        size=[200, 100],
-        direction=Direction.VERTICAL,
-""".splitlines()
-
-
 def draw(da, ctx):
     """Draw everything that should be drawn to the screen. Called once per frame."""
     if TIME_TO_KILL_AT is not None and TIME_TO_KILL_AT < time.time():
@@ -89,10 +74,6 @@ def press_callback(window, key):
 
     if val == Gdk.KEY_Tab:
         kill()
-    elif val == Gdk.KEY_plus:
-        WIDGETS["editor"].font_size += 3
-    elif val == Gdk.KEY_minus:
-        WIDGETS["editor"].font_size -= 3
     else:
         WIDGETS["editor"].handle_input(Gdk.keyval_to_unicode(val), Gdk.keyval_name(val))
 

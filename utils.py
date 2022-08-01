@@ -99,3 +99,7 @@ class Color:
 
 def index_or(container, obj):
     return container.index(obj) if obj in container else None
+
+
+def lerp(a, b, t):
+    return (b - a) * t + a

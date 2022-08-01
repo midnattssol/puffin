@@ -1,8 +1,8 @@
 #!/usr/bin/env python3.10
 """"""
-from render import *
 import colour
 import regex as re
+from render import *
 
 
 class ModeEnum(enum.Enum):
@@ -146,14 +146,13 @@ class Editor(Container):
 
     cursor: Rectangle = dc.field(default_factory=Rectangle)
 
-    # buffer_manager: TextGridManager = dc.field(default_factory=TextGridManager)
-    # split_buffer: list = None
-
     def __post_init__(self):
         for i in self.body, self.top_info, self.mode_indicator:
             i.parent = self
             i.color = utils.Color.ACCENT_0
             i.anchor = Anchor.TOP | Anchor.LEFT
+
+        x = len(self.current_mode.mode.name)
 
         self.mode_indicator.children.append(
             Text(
@@ -219,12 +218,10 @@ class Editor(Container):
 
         self._update_body(ctx)
 
+        # Do the rendering.
         self.top_info.render(ctx)
         self.mode_indicator.render(ctx)
         self.body.render(ctx)
-
-        # Render the pointer.
-        # self._render_pointer(ctx)
 
     def switch_mode(self, new_mode: ModeEnum) -> None:
         """Switch the current mode.."""
@@ -263,7 +260,14 @@ class Editor(Container):
             self.switch_mode(NORMAL)
             return None
 
-        if current == NORMAL:
+        if name == "plus":
+            self.font_size += 3
+            return
+        elif name == "minus":
+            self.font_size -= 3
+            self.font_size = max(5, self.font_size)
+            return
+        elif current == NORMAL:
             return self._handle_normal_mode(key, name)
         elif current == SHELL:
             return self._handle_shell_mode(key, name)
@@ -364,7 +368,7 @@ class Editor(Container):
                     self._get_char_size(ctx)[0] * 1.2,
                     self._get_char_size(ctx)[1] * 1.2,
                 ],
-                color=utils.Color.ACCENT_0,
+                color=utils.Color.ACCENT_1,
                 radius=self._get_char_size(ctx)[0] * 0.3,
                 anchor=Anchor.LEFT,
             )
@@ -434,10 +438,12 @@ class Editor(Container):
                 )
             )
 
+            x = len(line) - 1
+
             self.body.children.append(
-                Text(
+                ColoredText(
                     text=line.removesuffix("\n"),
-                    color=utils.Color.WHITE,
+                    default_state=TextState(fore=utils.Color.WHITE),
                     font_size=self.font_size,
                     position=self._get_pos(LINE_NUM_CHARS, n_drawn_lines, ctx),
                     anchor=Anchor.BOTTOM | Anchor.LEFT,
@@ -450,8 +456,10 @@ class Editor(Container):
                 self.cursor.position = self._get_pos(
                     LINE_NUM_CHARS + x_coord, n_drawn_lines - 1, ctx
                 )
-                self.cursor.render(ctx)
                 cursor_drawn = True
+
+                if self.current_mode.mode == NORMAL:
+                    self.cursor.color = self.body.children[-1].get_state(x_coord).fore
 
                 selector = RoundedRectangle(
                     size=[
@@ -464,9 +472,15 @@ class Editor(Container):
                 )
 
                 self.body.children[-2].color = utils.Color.BLACK
+                self.body.children[-1].set_state(
+                    x_coord, x_coord + 1, TextState(fore=utils.Color.BLACK)
+                )
 
                 x_coord = offset_pointer - n_chars + len(line)
                 selector.position = self._get_pos(0, n_drawn_lines - 1, ctx)
+
+                # Do the rendering.
+                self.cursor.render(ctx)
                 selector.render(ctx)
 
             n_drawn_lines += 1

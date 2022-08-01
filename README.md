@@ -7,10 +7,11 @@ A code editor.
 ## Features
 
 [.] Movement
-    [.] Bug: Lines added with Insert mode and Enter can't be jumped to
+    [x] Bug: Lines added with Insert mode and Enter can't be jumped to
     [x] Focused line in middle
     [ ] Scrolling free of cursor
     [.] Scolling with up/down keys
+    [x] Color system
 [.] Input
     [x] Bug: Input on other line than 0th inputs on 0th line either way
     [x] Implement up and down arrows correctly
