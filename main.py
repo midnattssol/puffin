@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A skeleton widget."""
+"""Run Puffin."""
 import dataclasses as dc
 import math
 import time
@@ -8,13 +8,11 @@ import typing as t
 
 import cairo
 import gi
-import interpolate as ip
 import numpy as np
-import render
-import size
-import utils
-from enums import *
 from editor import Editor
+
+from shortcake import *
+import cairo
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
@@ -40,6 +38,8 @@ def get_widgets():
         # border=border,
         editor=editor,
     )
+
+    WIDGETS["editor"].kill = kill
 
 
 def draw(da, ctx):
@@ -71,11 +71,18 @@ def timeout_callback(widget):
 def press_callback(window, key):
     """Callback for button presses."""
     val = key.keyval
+    name = Gdk.keyval_name(val)
 
-    if val == Gdk.KEY_Tab:
-        kill()
-    else:
-        WIDGETS["editor"].handle_input(Gdk.keyval_to_unicode(val), Gdk.keyval_name(val))
+    HELD_DOWN[name] = True
+    WIDGETS["editor"].handle_input(Gdk.keyval_to_unicode(val), Gdk.keyval_name(val))
+
+
+def release_callback(window, key):
+    """Callback for button releases."""
+    val = key.keyval
+    name = Gdk.keyval_name(val)
+
+    HELD_DOWN[name] = False
 
 
 def click_callback(window, event):
@@ -119,6 +126,7 @@ def main():
 
     # Connect callbacks.
     win.connect("key-press-event", press_callback)
+    win.connect("key-release-event", release_callback)
     win.connect("destroy", lambda w: Gtk.main_quit())
     win.connect("button-press-event", click_callback)
 
