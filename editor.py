@@ -3,6 +3,7 @@
 import dataclasses as dc
 import enum
 import itertools as it
+import typing as t
 
 import cairo
 import colour
@@ -10,29 +11,10 @@ import more_itertools as mit
 import movement as mov
 import numpy as np
 import regex as re
-from shortcake import *
+import shortcake as sc
+import utils
 
-TAB_CHAR = " " * 4
-
-
-class BufferAction(enum.Enum):
-    DELETE = enum.auto()
-    YANK = enum.auto()
-    PASTE = enum.auto()
-    GO = enum.auto()
-    LEFT = enum.auto()
-    DOWN = enum.auto()
-    UP = enum.auto()
-    RIGHT = enum.auto()
-    WORD = enum.auto()
-
-
-class ModeEnum(enum.Enum):
-    NORMAL = enum.auto()
-    INSERT = enum.auto()
-    SHELL = enum.auto()
-    NIMPL0 = enum.auto()
-    NIMPL1 = enum.auto()
+from enums import *
 
 
 @dc.dataclass
@@ -41,10 +23,10 @@ class Mode:
     color: list
 
     def __post_init__(self):
-        self.color = utils.normalize_color(self.color)
+        self.color = sc.utils.normalize_color(self.color)
         self.color = [i for i in self.color][:3]
 
-        # Normalize
+        # Normalize the color.
         self.color = colour.rgb2hsl(self.color)
         self.color = list(self.color)
         self.color[-1] = 0.5
@@ -52,33 +34,12 @@ class Mode:
         self.color = np.array([*self.color, 1])
 
 
-NORMAL = ModeEnum.NORMAL
-INSERT = ModeEnum.INSERT
-SHELL = ModeEnum.SHELL
-NIMPL0 = ModeEnum.NIMPL0
-NIMPL1 = ModeEnum.NIMPL1
-
-MODES = {
-    NORMAL: Mode(NORMAL, "#224870"),
-    INSERT: Mode(INSERT, "#1B998B"),
-    SHELL: Mode(SHELL, "#5EE08C"),
-    NIMPL0: Mode(..., "#FBA823"),
-    NIMPL1: Mode(..., "#BA1B1D"),
-}
-
-
-# ===| Globals |===
-
-with open(__file__, "r", encoding="utf-8") as file:
-    DEFAULT_TEXT = file.read()
-    DEFAULT_TEXT = DEFAULT_TEXT.splitlines()[:20]
-    DEFAULT_TEXT = "\n".join(DEFAULT_TEXT)
-    # DEFAULT_TEXT = "█" * 5 + file.read()
-
-# ===| Classes |===
+# ===| Functions |===
 
 
 def line_num2index(n: int, pos: int, buf: str):
+    """Get the line number from an index."""
+
     def inner(pos, left):
         if left == 0:
             return pos, left
@@ -101,52 +62,30 @@ def line_num2index(n: int, pos: int, buf: str):
     return result
 
 
-# @dc.dataclass
-# class TextGridManager:
-#     """Automatically calculates certain values of a text grid on update."""
-#
-#     abs_size: tuple = None
-#     char_size: tuple = None
-#     grid_size: tuple = None
-#     text_spacing: int = None
-#     font_size: int = 20
-#
-#     def __post_init__(self):
-#         self._update_char_size()
-#         self._update_grid_size()
-#
-#     def get_pos(self, x, y):
-#         x_pos = x * self.char_size[0]
-#         y_pos = (
-#             self.text_spacing
-#             + 2 * self.font_size
-#             + y * (self.text_spacing + self.char_size[1])
-#         )
-#         return np.array([x_pos, y_pos])
-#
-#     def set_font_size(self, n):
-#         self.font_size = n
-#         self._update_text_spacing()
-#
-#     def resize(self, ctx, abs_size):
-#         self.abs_size = abs_size
-#         self._update_char_size(ctx)
-#         self._update_grid_size(ctx)
-#
-#     # Update functions
-#     def _update_char_size(self):
-#         txt = Text()
-#         utils.CONTEXT.select_font_face(txt.font_face, txt.font_slant, txt.font_weight)
-#         utils.CONTEXT.set_font_size(self.font_size)
-#         (_, _, w, h, _, _) = ctx.text_extents("#")
-#
-#         self.char_size = np.array([w, h])
-#
-#     def _update_grid_size(self):
-#         w, h = self._get_char_size(utils.CONTEXT)
-#
-#     def _update_text_spacing(self):
-#         self.text_spacing = self.font_size * 0.3
+# ===| Globals |===
+
+
+with open(__file__, "r", encoding="utf-8") as file:
+    DEFAULT_TEXT = file.read()
+    DEFAULT_TEXT = DEFAULT_TEXT.splitlines()[:20]
+    DEFAULT_TEXT = "\n".join(DEFAULT_TEXT)
+    DEFAULT_TEXT = DEFAULT_TEXT + "h" * 200
+
+TAB_CHAR = " " * 4
+
+NORMAL = ModeEnum.NORMAL
+INSERT = ModeEnum.INSERT
+SHELL = ModeEnum.SHELL
+NIMPL0 = ModeEnum.NIMPL0
+NIMPL1 = ModeEnum.NIMPL1
+
+MODES = {
+    NORMAL: Mode(NORMAL, "#224870"),
+    INSERT: Mode(INSERT, "#1B998B"),
+    SHELL: Mode(SHELL, "#5EE08C"),
+    NIMPL0: Mode(..., "#FBA823"),
+    NIMPL1: Mode(..., "#BA1B1D"),
+}
 
 
 NOUNS = r"[hjklw]"
@@ -166,13 +105,16 @@ SHORT = {
 FORMS = {
     "delete": rf"(?<act>d){SCALE}?(?<noun>[d[{{('\"]|{NOUNS})",
     "paste": rf"(?<act>p)",
-    "go": rf"(?<act>g){SCALE}?",
+    "go": rf"{SCALE}?(?<act>g)",
     "left": rf"{SCALE}?(?<act>h)",
     "down": rf"{SCALE}?(?<act>j)",
     "up": rf"{SCALE}?(?<act>k)",
     "right": rf"{SCALE}?(?<act>l)",
     "word": rf"{SCALE}?(?<act>w)",
 }
+
+
+# ===| Classes |===
 
 
 @dc.dataclass
@@ -197,20 +139,29 @@ class NormalModeHandler:
 
         # Make sure a match was made.
         if (not match) or (len(match.group()) != len(self.read_buffer.text)):
-            # raise NotImplementedError(match)
             return None
 
-        # print(name, form, match)
         groups = match.groupdict()
 
-        # TODO: Handle weird scales here like dd and similar
-        # TODO: Handle negative numbers
+        # Default on weird scales.
+        scale_default = 1
 
-        groups["scale"] = 1 if groups.get("scale") is None else int(groups["scale"])
-        assert groups["scale"] >= 0
+        if name == "go":
+            scale_default = 0
+
+        groups["scale"] = (
+            scale_default if groups.get("scale") is None else int(groups["scale"])
+        )
+
+        assert groups["scale"] >= 0 or name == "go"
         self.read_buffer.clear()
 
-        if name == "left":
+        if name == "go":
+            self.write_buffer.set_pointer(
+                self.write_buffer.line_bounds(groups["scale"])[0] + 1
+            )
+            return None
+        elif name == "left":
             action = BufferAction.LEFT
         elif name == "right":
             action = BufferAction.RIGHT
@@ -228,13 +179,19 @@ class NormalModeHandler:
             action = BufferAction.DOWN
         elif name == "delete":
             action = BufferAction[SHORT[groups["noun"]].upper()]
-            old_pos = self.write_buffer.pointer
 
-            for _ in range(groups["scale"]):
-                self.write_buffer.handle_buffer_action(action)
-
-            new_pos = self.write_buffer.pointer
-            old_pos, new_pos = sorted([old_pos, new_pos])
+            if action == BufferAction.DELETE:
+                # Handle deleting current line with dd
+                self.write_buffer.reset_v_pointer()
+                old_pos, new_pos = self.write_buffer.line_bounds()
+                old_pos += 1
+                new_pos += 1
+            else:
+                old_pos = self.write_buffer.pointer
+                for _ in range(groups["scale"]):
+                    self.write_buffer.handle_buffer_action(action)
+                new_pos = self.write_buffer.pointer
+                old_pos, new_pos = sorted([old_pos, new_pos])
 
             middle = self.write_buffer.text[old_pos - 1 : new_pos - 1]
             self.registers["copy"] = middle
@@ -256,7 +213,7 @@ class NormalModeHandler:
 
 @dc.dataclass
 class TextBuffer:
-    text: str = "Hello world"
+    text: str = "Hello world!"
     default: str = "..."
     pointer: int = 1
     multiline: bool = True
@@ -280,7 +237,7 @@ class TextBuffer:
 
         assert isinstance(steps, int), (steps, type(steps))
         modified = self.pointer + steps
-        if modified in range(1, len(self.text) + 2):
+        if modified in range(1, len(self.text) + 1):
             self.pointer = modified
         else:
             assert not strict
@@ -309,6 +266,23 @@ class TextBuffer:
     def delete(self, n):
         self.text = self.text[: max(0, self.pointer - n)] + self.text[self.pointer :]
 
+    def write_with_callback(self, chars):
+        lines = chars.splitlines()
+        n = len(lines)
+
+        for i, line in enumerate(lines):
+            self.write(max(0, self.pointer - 1), line)
+
+            # Avoid writing newline on the last line.
+            if i == (n - 1):
+                continue
+
+            if not self.multiline:
+                self.newline_callback(self)
+                continue
+
+            self.write(max(0, self.pointer - 1), "\n")
+
     def send_text(self, key: int, name: str, buffer_override=None) -> None:
         """Handles sending text and similar modifications to the selected buffer."""
         char = chr(key)
@@ -317,6 +291,15 @@ class TextBuffer:
 
         if name in mapping:
             char = mapping[name]
+
+        # Handle Ctrl + V
+        if name == "v":
+            control_held_down = sc.HELD_DOWN["Control_R"] or sc.HELD_DOWN["Control_L"]
+
+            if control_held_down:
+                clipboard = utils.read_clipboard()
+                self.write_with_callback(clipboard)
+                return None
 
         # Special characters.
         if name == "ISO_Left_Tab":
@@ -347,17 +330,13 @@ class TextBuffer:
             )
 
         elif name == "Left":
-            # Go backwards one character.
-            self.move_pointer(-1)
+            self.handle_buffer_action(BufferAction.LEFT)
         elif name == "Right":
-            # Go forwards one character.
-            self.move_pointer(1)
+            self.handle_buffer_action(BufferAction.RIGHT)
         elif name == "Up":
-            # Jump backwards one line.
-            self.set_pointer(line_num2index(-1, self.pointer, self.text) - 2)
+            self.handle_buffer_action(BufferAction.UP)
         elif name == "Down":
-            # Jump forwards one line.
-            self.set_pointer(mov.nxt_line_start(self.pointer, self.text))
+            self.handle_buffer_action(BufferAction.DOWN)
         elif name == "Delete":
             self.delete(1)
         elif name == "BackSpace":
@@ -392,8 +371,20 @@ class TextBuffer:
             )
         )
 
-    def current_line(self):
-        return self.text[: self.pointer].count("\n")
+    def current_line(self) -> int:
+        return self.text[: self.pointer - 1].count("\n")
+
+    def line_bounds(self, n=None) -> t.Tuple[int]:
+        if n is None:
+            n = self.current_line()
+
+        lines = self.text.splitlines(keepends=True)
+        n = min(len(lines) - 1, n)
+
+        old_pos = sum(map(len, lines[:n]))
+        new_pos = old_pos + len(lines[n])
+
+        return old_pos, new_pos
 
     def handle_buffer_action(self, action: BufferAction):
         """Handle actions."""
@@ -443,236 +434,45 @@ class TextBuffer:
             raise NotImplementedError()
 
 
-# Stuff for the terminalesque aesthetic
 @dc.dataclass
-class Editor(Container):
-    normal_handler: NormalModeHandler = dc.field(default_factory=NormalModeHandler)
-    body_buffer: TextBuffer = dc.field(default_factory=lambda: TextBuffer(DEFAULT_TEXT))
-    normal_buffer: TextBuffer = dc.field(
-        default_factory=lambda: TextBuffer(text="", multiline=False)
-    )
-    shell_buffer: TextBuffer = dc.field(
-        default_factory=lambda: TextBuffer(text="", multiline=False)
-    )
+class Cursor:
+    """A cursor location and selection."""
+
+    location: int = 0
+    width: t.Optional[int] = 0
+
+    @property
+    def end(self) -> int:
+        return self.location + self.width
+
+    def is_selection(self) -> bool:
+        return bool(self.width)
+
+
+@dc.dataclass
+class TextWindow(sc.Container):
     active_buffer: ... = None
-
-    focused_line: int = 0
-
-    body: Container = dc.field(default_factory=Container)
-    current_mode: Mode = MODES[NORMAL]
-    top_info: RoundedRectangle = dc.field(default_factory=RoundedRectangle)
-    mode_indicator: RoundedRectangle = dc.field(default_factory=RoundedRectangle)
-    mode_buffer_container: RoundedRectangle = dc.field(default_factory=RoundedRectangle)
 
     focused_line: int = 0
     top_line: int = 0
     inner_spacing: int = 16
 
     font_size: int = 20
-    char_ratio: float = 0.5  # The x/y (DPI) font ratio for Iosevka.
+    char_ratio: float = 0.5  # The height/width ratio for Iosevka.
+    text_v_spacing_ratio: int = 0.2
 
-    cursor: Rectangle = dc.field(default_factory=Rectangle)
+    cursor: sc.Rectangle = dc.field(default_factory=sc.Rectangle)
+    body: sc.Container = dc.field(default_factory=sc.Container)
+    body_buffer: TextBuffer = dc.field(default_factory=lambda: TextBuffer(DEFAULT_TEXT))
 
-    def __post_init__(self):
-        self.active_buffer = self.body_buffer
-        self.shell_buffer.newline_callback = lambda s: self._handle_shell_command(
-            s.text
-        )
-        # self.normal_buffer.write_callback = lambda s: self._handle_shell_command(s.text)
-
-        for i in (
-            self.body,
-            self.top_info,
-            self.mode_indicator,
-            self.mode_buffer_container,
-        ):
-            i.parent = self
-            i.color = utils.Color.ACCENT_0
-            i.anchor = Anchor.TOP | Anchor.LEFT
-
-        self.mode_buffer_container.color = utils.Color.GREY_D1
-
-        x = len(self.current_mode.mode.name)
-
-        self.mode_indicator.children.append(
-            Text(
-                text=self.current_mode.mode.name,
-                font_size=self.font_size,
-                font_weight=cairo.FONT_WEIGHT_BOLD,
-            )
-        )
-
-        self.mode_buffer_container.children.append(
-            Text(
-                text="Hello world!",
-                font_size=self.font_size,
-            )
-        )
-
-        for i in self.mode_indicator.children:
-            i.parent = self.mode_indicator
-        for i in self.mode_buffer_container.children:
-            i.parent = self.mode_buffer_container
-
-    def render(self, ctx):
-        # TODO: draw bottom bgcolor rectangle which hides potential part offscreen numbers
-        # TODO: moldy code unless fixed
-
-        spacing = self.inner_spacing
-        top_left = self.get_top_left()
-
-        # Place the top info box.
-        self.top_info.position = top_left + spacing
-        self.top_info.size = np.array(
-            [
-                self.size[0] - spacing * 2,
-                self.font_size + self._get_text_v_spacing() * 2,
-            ]
-        )
-
-        # Place the bottom info box.
-        self.mode_indicator.anchor = Anchor.BOTTOM | Anchor.LEFT
-        self.mode_indicator.position = (
-            top_left + [0, self.size[1]] + [spacing, -spacing]
-        )
-        self.mode_indicator.size = [
-            (self.font_size / 2 * 6) + self._get_text_v_spacing() * 2,
-            self.top_info.size[1],
-        ]
-        self.mode_indicator.color = self.current_mode.color
-
-        self.mode_buffer_container.position = np.array(
-            [
-                self.mode_indicator.position[0] + self.mode_indicator.size[0] + spacing,
-                self.mode_indicator.position[1],
-            ]
-        )
-
-        self.mode_buffer_container.size = np.array(
-            [
-                self.size[0] - spacing - self.mode_buffer_container.position[0],
-                self.mode_indicator.size[1],
-            ]
-        )
-
-        self.mode_buffer_container.anchor = Anchor.BOTTOM | Anchor.LEFT
-
-        # Set the text box positions.
-        for child in self.mode_buffer_container.children:
-            child.position = (
-                child.parent.get_top_left()
-                + np.array(child.parent.size) * [0, 0.5]
-                + self._get_text_v_spacing()
-            )
-            child.anchor = Anchor.TOP | Anchor.LEFT
-            child.color = utils.Color.WHITE
-            child.font_size = self.font_size
-            if self.current_mode.mode == NORMAL:
-                child.text = self.normal_buffer.text
-            elif self.current_mode.mode == SHELL:
-                child.text = self.shell_buffer.text
-            else:
-                child.text = ""
-
-        # Set the text box positions.
-        for child in self.mode_indicator.children:
-            child.position = (
-                child.parent.get_top_left()
-                + np.array(child.parent.size) * 0.5
-                + [0, self._get_text_v_spacing()]
-            )
-            child.anchor = Anchor.TOP
-            child.font_size = self.font_size
-
-        # Place the body.
-        available_y_space = self.size[1] - (
-            self.mode_indicator.size[1] + self.top_info.size[1] + spacing * 2
-        )
-        self.body.position = (
-            top_left + [spacing, 2 * spacing] + [0, self.top_info.size[1]]
-        )
-        self.body.size = np.array(
-            [
-                self.size[0] - spacing * 2,
-                available_y_space - spacing * 2,
-            ]
-        )
-
-        self._update_body(ctx)
-
-        # Do the rendering.
-        self.top_info.render(ctx)
-        self.mode_indicator.render(ctx)
-        self.mode_buffer_container.render(ctx)
-        self.body.render(ctx)
-
-    def switch_mode(self, new_mode: ModeEnum) -> None:
-        """Switch the current mode.."""
-        self.current_mode = MODES[new_mode]
-        self.mode_indicator.children[-1].text = self.current_mode.mode.name
-
-        if new_mode == SHELL:
-            self.active_buffer = self.shell_buffer
-        # elif new_mode == NORMAL:
-        #     self.active_buffer = self.normal_buffer
-        else:
-            self.active_buffer = self.body_buffer
-
-    def handle_input(self, key: int, name: str) -> None:
-        """Handle user input."""
-        current = self.current_mode.mode
-
-        # Switch back to Normal mode on escape.
-        if name == "Escape" and current != NORMAL:
-            self.switch_mode(NORMAL)
-            return None
-
-        if name == "plus":
-            self.font_size += 3
-            return
-        elif name == "minus":
-            self.font_size -= 3
-            self.font_size = max(5, self.font_size)
-            return
-        elif current == NORMAL:
-            return self._handle_normal_mode(key, name)
-        elif current in {SHELL, INSERT}:
-            return self.active_buffer.send_text(key, name)
-        raise NotImplementedError()
-
-    def _handle_normal_mode(self, key: int, name: str):
-        """Handle normal mode."""
-        self.normal_buffer.send_text(key, name)
-
-        buffer = self.active_buffer
-        self.normal_handler.read_buffer = self.normal_buffer
-        self.normal_handler.write_buffer = self.active_buffer
-
-        if name == "colon":
-            self.switch_mode(SHELL)
-            self.normal_buffer.clear()
-        elif name == "i":
-            self.switch_mode(INSERT)
-            self.normal_buffer.clear()
-
-        return self.normal_handler.parse_command()
-
-    def _handle_shell_command(self, command):
-        """Handles a shell command when it's entered."""
-        command = command.strip()
-
-        if command == "q":
-            return self.kill()
-
-        self.shell_buffer.text = ""
-
-    def _get_text_v_spacing(self):
+    @property
+    def text_v_spacing(self):
         """Get the vertical spacing between different characters."""
-        return self.font_size * 0.3
+        return self.font_size * self.text_v_spacing_ratio
 
     def _get_char_size(self, ctx) -> np.ndarray:
         """Get the size of a character in this font."""
-        txt = Text()
+        txt = sc.Text()
         ctx.select_font_face(txt.font_face, txt.font_slant, txt.font_weight)
         ctx.set_font_size(self.font_size)
         (_, _, w, h, _, _) = ctx.text_extents("█")
@@ -682,41 +482,41 @@ class Editor(Container):
     def _get_body_n_chars(self, ctx) -> np.ndarray:
         """Get a ndarray that contains the number of rows and columns available in the body."""
         w, h = self._get_char_size(ctx)
-        return (self.body.size) / [w, h + self._get_text_v_spacing()]
+        return (self.body.size) / [w, h + self.text_v_spacing]
 
     def _get_pos(self, x, y, ctx):
         return self.body.get_top_left() + [
             x * self._get_char_size(ctx)[0],
             (
-                y * (self._get_text_v_spacing() + self._get_char_size(ctx)[1])
-                + self._get_text_v_spacing()
+                y * (self.text_v_spacing + self._get_char_size(ctx)[1])
+                + self.text_v_spacing
                 + 2 * self.font_size
             ),
         ]
 
-    def _update_cursor(self, ctx):
-        if self.current_mode.mode != INSERT:
-            self.cursor = RoundedRectangle(
+    def _update_cursor(self, ctx, wide=True):
+        if wide:
+            self.cursor = sc.RoundedRectangle(
                 size=[
                     self._get_char_size(ctx)[0] * 1.2,
                     self._get_char_size(ctx)[1] * 1.2,
                 ],
-                color=utils.Color.ACCENT_1,
+                color=sc.utils.Color.ACCENT_1,
                 radius=self._get_char_size(ctx)[0] * 0.3,
-                anchor=Anchor.LEFT,
+                anchor=sc.Anchor.LEFT,
             )
         else:
-            self.cursor = Rectangle(
+            self.cursor = sc.Rectangle(
                 size=[
                     self._get_char_size(ctx)[0] * 0.2,
                     self._get_char_size(ctx)[1] * 1.5,
                 ],
-                color=utils.Color.WHITE,
-                anchor=Anchor.LEFT,
+                color=sc.utils.Color.WHITE,
+                anchor=sc.Anchor.LEFT,
             )
 
     def _update_body(self, ctx):
-        self._update_cursor(ctx)
+        self._update_cursor(ctx, wide=self.current_mode.mode != INSERT)
         self._focus_selected_line(ctx)
 
         LINE_NUM_CHARS = 10
@@ -762,24 +562,24 @@ class Editor(Container):
 
             # Add the children to be drawn.
             self.body.children.append(
-                Text(
+                sc.Text(
                     text=num,
-                    color=utils.Color.GREY_L1,
+                    color=sc.utils.Color.GREY_L1,
                     font_size=self.font_size,
                     position=self._get_pos(0, n_drawn_lines, ctx),
-                    anchor=Anchor.BOTTOM | Anchor.LEFT,
+                    anchor=sc.Anchor.BOTTOM | sc.Anchor.LEFT,
                 )
             )
 
             x = len(line) - 1
 
             self.body.children.append(
-                ColoredText(
+                sc.ColoredText(
                     text=line.removesuffix("\n"),
-                    default_state=TextState(fore=utils.Color.WHITE),
+                    default_state=sc.TextState(fore=sc.utils.Color.WHITE),
                     font_size=self.font_size,
                     position=self._get_pos(LINE_NUM_CHARS, n_drawn_lines, ctx),
-                    anchor=Anchor.BOTTOM | Anchor.LEFT,
+                    anchor=sc.Anchor.BOTTOM | sc.Anchor.LEFT,
                 )
             )
 
@@ -794,19 +594,19 @@ class Editor(Container):
                 if self.current_mode.mode != INSERT:
                     self.cursor.color = self.body.children[-1].get_state(x_coord).fore
                     self.body.children[-1].set_state(
-                        x_coord, x_coord + 1, TextState(fore=utils.Color.BLACK)
+                        x_coord, x_coord + 1, sc.TextState(fore=sc.utils.Color.BLACK)
                     )
-                selector = RoundedRectangle(
+                selector = sc.RoundedRectangle(
                     size=[
                         self._get_char_size(ctx)[0] * 6,
                         self._get_char_size(ctx)[1] * 1.3,
                     ],
-                    color=utils.Color.ACCENT_2,
+                    color=sc.utils.Color.ACCENT_2,
                     radius=self._get_char_size(ctx)[0] * 0.3,
-                    anchor=Anchor.LEFT,
+                    anchor=sc.Anchor.LEFT,
                 )
 
-                self.body.children[-2].color = utils.Color.BLACK
+                self.body.children[-2].color = sc.utils.Color.BLACK
 
                 x_coord = offset_pointer - n_chars + len(line)
                 selector.position = self._get_pos(0, n_drawn_lines - 1, ctx)
@@ -835,3 +635,219 @@ class Editor(Container):
         top_line_to_show = i - (lines_on_screen // 2)
         top_line_to_show = max(0, top_line_to_show)
         self.focused_line = top_line_to_show
+
+
+@dc.dataclass
+class Editor(TextWindow):
+    normal_handler: NormalModeHandler = dc.field(default_factory=NormalModeHandler)
+    normal_buffer: TextBuffer = dc.field(
+        default_factory=lambda: TextBuffer(text="", multiline=False)
+    )
+    shell_buffer: TextBuffer = dc.field(
+        default_factory=lambda: TextBuffer(text="", multiline=False)
+    )
+
+    current_mode: Mode = MODES[NORMAL]
+    top_info: sc.RoundedRectangle = dc.field(default_factory=sc.RoundedRectangle)
+    mode_indicator: sc.RoundedRectangle = dc.field(default_factory=sc.RoundedRectangle)
+    mode_buffer_container: sc.RoundedRectangle = dc.field(
+        default_factory=sc.RoundedRectangle
+    )
+
+    def __post_init__(self):
+        self.active_buffer = self.body_buffer
+        self.shell_buffer.newline_callback = lambda s: self._handle_shell_command(
+            s.text
+        )
+        # self.normal_buffer.write_callback = lambda s: self._handle_shell_command(s.text)
+
+        for i in (
+            self.body,
+            self.top_info,
+            self.mode_indicator,
+            self.mode_buffer_container,
+        ):
+            i.parent = self
+            i.color = sc.utils.Color.ACCENT_0
+            i.anchor = sc.Anchor.TOP | sc.Anchor.LEFT
+
+        self.mode_buffer_container.color = sc.utils.Color.GREY_D1
+
+        x = len(self.current_mode.mode.name)
+
+        self.mode_indicator.children.append(
+            sc.Text(
+                text=self.current_mode.mode.name,
+                font_size=self.font_size,
+                font_weight=cairo.FONT_WEIGHT_BOLD,
+            )
+        )
+
+        self.mode_buffer_container.children.append(
+            sc.Text(
+                text="Hello world!",
+                font_size=self.font_size,
+            )
+        )
+
+        for i in self.mode_indicator.children:
+            i.parent = self.mode_indicator
+        for i in self.mode_buffer_container.children:
+            i.parent = self.mode_buffer_container
+
+    def render(self, ctx):
+        # TODO: draw bottom bgcolor rectangle which hides potential part offscreen numbers
+        # TODO: moldy code unless fixed
+
+        spacing = self.inner_spacing
+        top_left = self.get_top_left()
+
+        # Place the top info box.
+        self.top_info.position = top_left + spacing
+        self.top_info.size = np.array(
+            [
+                self.size[0] - spacing * 2,
+                self.font_size + self.text_v_spacing * 2,
+            ]
+        )
+
+        # Place the bottom info box.
+        self.mode_indicator.anchor = sc.Anchor.BOTTOM | sc.Anchor.LEFT
+        self.mode_indicator.position = (
+            top_left + [0, self.size[1]] + [spacing, -spacing]
+        )
+        self.mode_indicator.size = [
+            (self.font_size / 2 * 6) + self.text_v_spacing * 2,
+            self.top_info.size[1],
+        ]
+        self.mode_indicator.color = self.current_mode.color
+
+        self.mode_buffer_container.position = np.array(
+            [
+                self.mode_indicator.position[0] + self.mode_indicator.size[0] + spacing,
+                self.mode_indicator.position[1],
+            ]
+        )
+
+        self.mode_buffer_container.size = np.array(
+            [
+                self.size[0] - spacing - self.mode_buffer_container.position[0],
+                self.mode_indicator.size[1],
+            ]
+        )
+
+        self.mode_buffer_container.anchor = sc.Anchor.BOTTOM | sc.Anchor.LEFT
+
+        # Set the text box positions.
+        for child in self.mode_buffer_container.children:
+            child.position = (
+                child.parent.get_top_left()
+                + np.array(child.parent.size) * [0, 0.5]
+                + self.text_v_spacing
+            )
+            child.anchor = sc.Anchor.TOP | sc.Anchor.LEFT
+            child.color = sc.utils.Color.WHITE
+            child.font_size = self.font_size
+            if self.current_mode.mode == NORMAL:
+                child.text = self.normal_buffer.text
+            elif self.current_mode.mode == SHELL:
+                child.text = self.shell_buffer.text
+            else:
+                child.text = ""
+
+        # Set the text box positions.
+        for child in self.mode_indicator.children:
+            child.position = (
+                child.parent.get_top_left()
+                + np.array(child.parent.size) * 0.5
+                + [0, self.text_v_spacing]
+            )
+            child.anchor = sc.Anchor.TOP
+            child.font_size = self.font_size
+
+        # Place the body.
+        available_y_space = self.size[1] - (
+            self.mode_indicator.size[1] + self.top_info.size[1] + spacing * 2
+        )
+        self.body.position = (
+            top_left + [spacing, 2 * spacing] + [0, self.top_info.size[1]]
+        )
+        self.body.size = np.array(
+            [
+                self.size[0] - spacing * 2,
+                available_y_space - spacing * 2,
+            ]
+        )
+
+        self._update_body(ctx)
+
+        # Do the rendering.
+        self.top_info.render(ctx)
+        self.mode_indicator.render(ctx)
+        self.mode_buffer_container.render(ctx)
+        self.body.render(ctx)
+
+    def switch_mode(self, new_mode: ModeEnum) -> None:
+        """Switch the current mode.."""
+        self.current_mode = MODES[new_mode]
+        self.mode_indicator.children[-1].text = self.current_mode.mode.name
+
+        if new_mode == SHELL:
+            self.active_buffer = self.shell_buffer
+        # elif new_mode == NORMAL:
+        #     self.active_buffer = self.normal_buffer
+        else:
+            self.active_buffer = self.body_buffer
+
+    def handle_input(self, key: int, name: str) -> None:
+        """Handle user input."""
+        current = self.current_mode.mode
+        control_held_down = sc.HELD_DOWN["Control_R"] or sc.HELD_DOWN["Control_L"]
+
+        # Switch back to Normal mode on escape.
+        if name == "Escape" and current != NORMAL:
+            self.switch_mode(NORMAL)
+            return None
+
+        if control_held_down:
+            if name == "plus":
+                self.font_size += 3
+                return
+            if name == "minus":
+                self.font_size -= 3
+                self.font_size = max(5, self.font_size)
+                return
+
+        if current == NORMAL:
+            return self._handle_normal_mode(key, name)
+        if current in {SHELL, INSERT}:
+            return self.active_buffer.send_text(key, name)
+        raise NotImplementedError()
+
+    def _handle_normal_mode(self, key: int, name: str):
+        """Handle normal mode."""
+        self.normal_buffer.send_text(key, name)
+
+        buffer = self.active_buffer
+        self.normal_handler.read_buffer = self.normal_buffer
+        self.normal_handler.write_buffer = self.active_buffer
+
+        if name == "Escape":
+            self.normal_buffer.clear()
+        elif name == "period":
+            self.switch_mode(SHELL)
+            self.normal_buffer.clear()
+        elif name == "i":
+            self.switch_mode(INSERT)
+            self.normal_buffer.clear()
+
+        return self.normal_handler.parse_command()
+
+    def _handle_shell_command(self, command):
+        """Handles a shell command when it's entered."""
+        command = command.strip()
+
+        if command == "q":
+            return self.kill()
+
+        self.shell_buffer.text = ""

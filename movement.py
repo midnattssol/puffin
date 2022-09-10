@@ -1,31 +1,25 @@
 #!/usr/bin/env python3.10
 """Handles movement in strings."""
-
-import regex as re
 import functools as ft
 
+import regex as re
 
-# def _paren_depths(string: str, p0, p1):
-#     depths = []
-#     d = 0
-#     for i in string:
-#         d += (i in p0) - (i in p1)
-#         depths.append(d)
-#     return depths
+
+# ===| Functions |===
 
 
 def nxt_template(regex: str, include_span: bool = True) -> callable:
-    def fn(pos: int, string: str) -> int:
+    def inner(pos: int, string: str) -> int:
         match = re.search(regex, string[pos:])
         if match is None:
             return -1
         return match.span()[include_span] + pos - 1
 
-    return fn
+    return inner
 
 
 def prv_template(regex: str, include_span: bool = True) -> callable:
-    def fn(pos: int, string: str) -> int:
+    def inner(pos: int, string: str) -> int:
         match = re.finditer(regex, string)
         last_item = None
 
@@ -40,11 +34,11 @@ def prv_template(regex: str, include_span: bool = True) -> callable:
 
         return 1
 
-    return fn
+    return inner
 
 
 # def jump_enclosing_paren_template(p0: str, p1: str, rev=False):
-#     def fn(pos: int, string: str):
+#     def inner(pos: int, string: str):
 #         i = 1 if rev else -1
 #         depth = 0
 #         pos = 0
@@ -55,7 +49,7 @@ def prv_template(regex: str, include_span: bool = True) -> callable:
 #
 #         return i
 #
-#     return fn
+#     return inner
 # jump_enclosing = jump_enclosing_paren_template("([{", "}])")
 
 nxt_word_start = nxt_template(r"\s+")

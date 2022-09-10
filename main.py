@@ -12,10 +12,12 @@ import numpy as np
 from editor import Editor
 
 from shortcake import *
+import shortcake as sc
 import cairo
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
+
 
 # ===| Globals |===
 
@@ -33,9 +35,7 @@ WIDGETS = {}
 def get_widgets():
     global WIDGETS
     editor = Editor(position=np.array([0, 0]), anchor=Anchor.TOP | Anchor.LEFT)
-    # border = render.RoundedRectangle(color=utils.Color.WHITE)
     WIDGETS = dict(
-        # border=border,
         editor=editor,
     )
 
@@ -73,7 +73,7 @@ def press_callback(window, key):
     val = key.keyval
     name = Gdk.keyval_name(val)
 
-    HELD_DOWN[name] = True
+    sc.HELD_DOWN[name] = True
     WIDGETS["editor"].handle_input(Gdk.keyval_to_unicode(val), Gdk.keyval_name(val))
 
 
@@ -82,7 +82,7 @@ def release_callback(window, key):
     val = key.keyval
     name = Gdk.keyval_name(val)
 
-    HELD_DOWN[name] = False
+    sc.HELD_DOWN[name] = False
 
 
 def click_callback(window, event):

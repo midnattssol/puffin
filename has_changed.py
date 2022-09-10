@@ -4,7 +4,6 @@ import dataclasses as dc
 import hashlib as hl
 import pathlib as p
 
-
 # ===| Globals |===
 CHUNK = 512
 

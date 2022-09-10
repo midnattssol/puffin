@@ -28,9 +28,12 @@ Puffin is a code editor built in Python with Shortcake/Gdk.
 
 
 [.] UI
+    [ ] Menu system
+        [ ] Options
     [x] Bug: Lines added with Insert mode and Enter can't be jumped to
     [x] Focused line in middle
     [ ] Scrolling free of cursor
+    [ ] Scrolling with the mouse wheel
     [x] Scolling with up/down keys
         [x] Bug: Always lands on last char of line
     [x] Color system
