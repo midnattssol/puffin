@@ -6,6 +6,8 @@ import enum
 
 
 class BufferAction(enum.Enum):
+    """An action which text buffers can handle."""
+
     DELETE = enum.auto()
     YANK = enum.auto()
     PASTE = enum.auto()
@@ -18,6 +20,8 @@ class BufferAction(enum.Enum):
 
 
 class ModeEnum(enum.Enum):
+    """Modes that the text editor can be in."""
+
     NORMAL = enum.auto()
     INSERT = enum.auto()
     SHELL = enum.auto()

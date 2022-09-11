@@ -1,14 +1,13 @@
 #!/usr/bin/env python3.10
 """Handles movement in strings."""
-import functools as ft
-
 import regex as re
-
 
 # ===| Functions |===
 
 
 def nxt_template(regex: str, include_span: bool = True) -> callable:
+    """Template function which goes to the next occurence of a regular expression."""
+
     def inner(pos: int, string: str) -> int:
         match = re.search(regex, string[pos:])
         if match is None:
@@ -19,6 +18,8 @@ def nxt_template(regex: str, include_span: bool = True) -> callable:
 
 
 def prv_template(regex: str, include_span: bool = True) -> callable:
+    """Template function which goes to the previous occurence of a regular expression."""
+
     def inner(pos: int, string: str) -> int:
         match = re.finditer(regex, string)
         last_item = None
@@ -64,14 +65,14 @@ prv_line_end = prv_template(r"\n", include_span=False)
 
 
 if __name__ == "__main__":
-    long = """hello world this is a
+    LONG = """hello world this is a
     multiline string!"""
 
     assert nxt_word_start(0, "hello world") == len("hello ")
     assert nxt_word_end(0, "hello world") == len("hello")
     assert nxt_word_end(5, "hello world") == len("hello world")
 
-    assert nxt_line_start(0, long) == len(long.splitlines()[0]) + 1
-    assert nxt_line_end(0, long) == len(long.splitlines()[0])
+    assert nxt_line_start(0, LONG) == len(LONG.splitlines()[0]) + 1
+    assert nxt_line_end(0, LONG) == len(LONG.splitlines()[0])
 
-    assert prv_line_end(len(long), long) == len(long.splitlines()[0])
+    assert prv_line_end(len(LONG), LONG) == len(LONG.splitlines()[0])

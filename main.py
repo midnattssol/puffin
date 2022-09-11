@@ -1,19 +1,15 @@
 #!/usr/bin/env python3
 """Run Puffin."""
-import dataclasses as dc
-import math
+import sys
 import time
-from datetime import datetime
 import typing as t
 
-import cairo
 import gi
 import numpy as np
+import shortcake as sc
+from shortcake import utils, Anchor
 from editor import Editor
 
-from shortcake import *
-import shortcake as sc
-import cairo
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
@@ -31,8 +27,9 @@ TIME_TO_KILL_AT = None
 
 WIDGETS = {}
 
-# A top container.
+
 def get_widgets():
+    """Generate the containers."""
     global WIDGETS
     editor = Editor(position=np.array([0, 0]), anchor=Anchor.TOP | Anchor.LEFT)
     WIDGETS = dict(
@@ -42,10 +39,10 @@ def get_widgets():
     WIDGETS["editor"].kill = kill
 
 
-def draw(da, ctx):
+def draw(_, ctx):
     """Draw everything that should be drawn to the screen. Called once per frame."""
     if TIME_TO_KILL_AT is not None and TIME_TO_KILL_AT < time.time():
-        exit()
+        sys.exit()
 
     WIDGETS["editor"].size = np.array(WINDOW.get_size())
 
@@ -69,7 +66,7 @@ def timeout_callback(widget):
 
 
 def press_callback(window, key):
-    """Callback for button presses."""
+    """Apply the callback for button presses."""
     val = key.keyval
     name = Gdk.keyval_name(val)
 
@@ -78,7 +75,7 @@ def press_callback(window, key):
 
 
 def release_callback(window, key):
-    """Callback for button releases."""
+    """Apply the callback for button releases."""
     val = key.keyval
     name = Gdk.keyval_name(val)
 
@@ -86,7 +83,7 @@ def release_callback(window, key):
 
 
 def click_callback(window, event):
-    """Callback for mouse clicks."""
+    """Apply the callback for mouse clicks."""
     # window.begin_move_drag(
     #     event.button,
     #     round(event.x + window.get_window().get_root_origin()[0]),
@@ -96,6 +93,7 @@ def click_callback(window, event):
 
 
 def main():
+    """Enter the main loop."""
     global WINDOW
     colors = {
         "ACCENT_0": "#8F1445",

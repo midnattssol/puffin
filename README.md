@@ -17,8 +17,8 @@ Puffin is a code editor built in Python with Shortcake/Gdk.
 [x] p(aste)
 [x] hjkl: normal movement
 [x] w: word forwards
-[.] g(o to start of line)
-    [.] g[n]: go to line x, supporting negative indexing
+[x] g(o to start of line)
+    [x] g[n]: go to line x, supporting negative indexing
 [.] r: find and replace
     [.] avoid autoenter
     [.] r[n=1]?l "..." "..."? -> match and (replace?) n
@@ -30,27 +30,23 @@ Puffin is a code editor built in Python with Shortcake/Gdk.
 [.] UI
     [ ] Menu system
         [ ] Options
+            [ ] Choose if lines start at 0 or 1
     [x] Bug: Lines added with Insert mode and Enter can't be jumped to
     [x] Focused line in middle
-    [ ] Scrolling free of cursor
-    [ ] Scrolling with the mouse wheel
-    [x] Scolling with up/down keys
-        [x] Bug: Always lands on last char of line
     [x] Color system
-        [ ] Show selections with background square thing
         [ ] Syntax highlighting
         [ ] Parenthesis highlighting
-        [ ] Choose if lines start at 0 or 1
 
 [.] Input
     [x] Bug: Input on other line than 0th inputs on 0th line either way
     [x] Implement up and down arrows correctly
     [x] Working cursor
     [x] Changing modes
-        [.] Vimesque command line mode
-            [ ] Multicursor capabilities
+        [x] Vimesque command line mode
+            [x] Multicursor capabilities
         [x] Parsing more complex instructions
-            [.] Selections
+            [.] Selection mode
+                [ ] Show selections with background square thing
 [ ] IO capabilities
     [ ] Stdout/stderr display
 

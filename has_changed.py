@@ -24,7 +24,7 @@ class FileStatus:
         self.update()
 
     def update(self):
-        """Updates the variables by reading the file in chunks once."""
+        """Update the variables by reading the file in chunks once."""
         self.length = 0
         sha256hasher = hl.sha256()
         self.first_chunk = b""
@@ -45,8 +45,8 @@ class FileStatus:
         """Lazily check if a file has changed.
 
         The function is chunked, so it's safe for use with arbitrarily large files.
-        It also updates the filestatus unless the `update` flag is set to False."""
-
+        It also updates the filestatus unless the `update` flag is set to False.
+        """
         file_length = 0
         has_read_first = False
         hasher = hl.sha256()
